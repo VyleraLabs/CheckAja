@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  BRANCH_ADMIN
+}
+
+enum SyncStatus {
+  HEALTHY
+  COMPROMISED
+}
+
+enum ActionType {
+  UNAUTHORIZED_EDIT_DETECTED
+  AUTO_REVERT_SUCCESS
+  AUTO_REVERT_FAILED
+  ADMIN_MANUAL_UPDATE
+}
+
+model BusinessUnit {
+  id        String     @id @default(cuid())
+  name      String
+  users     User[]
+  locations Location[]
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String?
+  avatar         String?
+  role           Role          @default(BRANCH_ADMIN)
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  locationId     String?
+  location       Location?     @relation(fields: [locationId], references: [id])
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Location {
+  id               String       @id @default(cuid())
+  googleLocationId String       @unique
+  name             String
+  primaryPhone     String?
+  additionalPhones Json?
+  websiteUri       String?
+  address          String?
+  syncStatus       SyncStatus   @default(HEALTHY)
+  lastCheckedAt    DateTime?
+  businessUnitId   String
+  businessUnit     BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  
+  users            User[]       // Reverse relation for User.locationId
+  auditLogs        AuditLog[]
+}
+
+model AuditLog {
+  id           String     @id @default(cuid())
+  locationId   String
+  location     Location   @relation(fields: [locationId], references: [id])
+  actionType   ActionType
+  previousData Json?
+  newData      Json?
+  timestamp    DateTime   @default(now())
+}
